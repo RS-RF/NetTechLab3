@@ -1,4 +1,5 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <pcap.h>
 #include <Winsock2.h>
@@ -88,9 +89,7 @@ typedef struct IPHeader {
 }IPHeader;
 #pragma pack()
 
-//回调函数的声明
-void packet_handler(u_char* param, const struct pcap_pkthdr* header, const u_char* pkt_data);
-void setARP(ARPFrame* argu_arp, IPAddress argu_ip) {
+void setARP(ARPFrame* argu_arp, BYTE argu_send_ha[], IPAddress argu_send_ip, IPAddress argu_recv_ip) {
     // 设置目的地址为广播地址
     argu_arp->frame_header.destination_mac_address.byte1 = 0xFF;
     argu_arp->frame_header.destination_mac_address.byte2 = 0xFF;
@@ -100,12 +99,12 @@ void setARP(ARPFrame* argu_arp, IPAddress argu_ip) {
     argu_arp->frame_header.destination_mac_address.byte6 = 0xFF;
 
     //设置本机网卡的MAC地址
-    argu_arp->frame_header.destination_mac_address.byte1 = 0x42;
-    argu_arp->frame_header.destination_mac_address.byte2 = 0x42;
-    argu_arp->frame_header.destination_mac_address.byte3 = 0x42;
-    argu_arp->frame_header.destination_mac_address.byte4 = 0x42;
-    argu_arp->frame_header.destination_mac_address.byte5 = 0x42;
-    argu_arp->frame_header.destination_mac_address.byte6 = 0x42;
+    argu_arp->frame_header.destination_mac_address.byte1 = argu_send_ha[0];
+    argu_arp->frame_header.destination_mac_address.byte2 = argu_send_ha[1];
+    argu_arp->frame_header.destination_mac_address.byte3 = argu_send_ha[2];
+    argu_arp->frame_header.destination_mac_address.byte4 = argu_send_ha[3];
+    argu_arp->frame_header.destination_mac_address.byte5 = argu_send_ha[4];
+    argu_arp->frame_header.destination_mac_address.byte6 = argu_send_ha[5];
 
     //设置帧类型为0x0806
     argu_arp->frame_header.type = htons(0x0806);
@@ -126,18 +125,18 @@ void setARP(ARPFrame* argu_arp, IPAddress argu_ip) {
     argu_arp->operation = htons(0x0001);
 
     //设置本机网卡的MAC地址
-    argu_arp->send_ha[0] = 0x42;
-    argu_arp->send_ha[1] = 0x42;
-    argu_arp->send_ha[2] = 0x42;
-    argu_arp->send_ha[3] = 0x42;
-    argu_arp->send_ha[4] = 0x42;
-    argu_arp->send_ha[5] = 0x42;
+    argu_arp->send_ha[0] = argu_send_ha[0];
+    argu_arp->send_ha[1] = argu_send_ha[1];
+    argu_arp->send_ha[2] = argu_send_ha[2];
+    argu_arp->send_ha[3] = argu_send_ha[3];
+    argu_arp->send_ha[4] = argu_send_ha[4];
+    argu_arp->send_ha[5] = argu_send_ha[5];
 
     //设置本机网卡的IP地址
-    argu_arp->send_ip.byte1 = 0x70;
-    argu_arp->send_ip.byte2 = 0x70;
-    argu_arp->send_ip.byte3 = 0x70;
-    argu_arp->send_ip.byte4 = 0x70;
+    argu_arp->send_ip.byte1 = argu_send_ip.byte1;
+    argu_arp->send_ip.byte2 = argu_send_ip.byte2;
+    argu_arp->send_ip.byte3 = argu_send_ip.byte3;
+    argu_arp->send_ip.byte4 = argu_send_ip.byte4;
 
     //设置目的MAC地址为0
     argu_arp->recv_ha[0] = 0x00;
@@ -148,10 +147,10 @@ void setARP(ARPFrame* argu_arp, IPAddress argu_ip) {
     argu_arp->recv_ha[5] = 0x00;
 
     //设置请求的IP地址
-    argu_arp->recv_ip.byte1 = argu_ip.byte1;
-    argu_arp->recv_ip.byte2 = argu_ip.byte2;
-    argu_arp->recv_ip.byte3 = argu_ip.byte3;
-    argu_arp->recv_ip.byte4 = argu_ip.byte4;
+    argu_arp->recv_ip.byte1 = argu_recv_ip.byte1;
+    argu_arp->recv_ip.byte2 = argu_recv_ip.byte2;
+    argu_arp->recv_ip.byte3 = argu_recv_ip.byte3;
+    argu_arp->recv_ip.byte4 = argu_recv_ip.byte4;
 }
 
 int main()
@@ -163,7 +162,7 @@ int main()
     pcap_t* adhandle;//打开的网络接口设备
     char errbuf[PCAP_ERRBUF_SIZE];//存储错误信息的buffer
     u_int netmask;//子网掩码
-    char packet_filter[] = "ether proto \\arp";//过滤器：只接受ip数据包
+    char packet_filter[] = "arp";//过滤器
     struct bpf_program fcode;
 
     pcap_addr_t* a;
@@ -188,6 +187,10 @@ int main()
     }
 
     int count_dev = 0;
+
+    printf("----------获取设备列表：----------\n");
+
+
     //输出设备列表，并用count_dev进行计数
     for (d = alldevs; d; d = d->next)
     {
@@ -227,6 +230,7 @@ int main()
             }
         }
     }
+    printf("\n");
 
     //如果设备列表为空，则输出提示信息，主函数返回-1
     if (count_dev == 0)
@@ -236,8 +240,10 @@ int main()
     }
 
     //输入设备的标号
+    printf("----------选择设备：----------\n");
     printf("输入设备的标号:");
     scanf_s("%d", &dev_num);
+    
 
     //检查dev_num的合法性
     if (dev_num < 1 || dev_num > count_dev)
@@ -305,9 +311,15 @@ int main()
     local_ip.byte3 = (rev_ip>>16) & 0xFF;
     local_ip.byte4 = (rev_ip>>24) & 0xFF;
 
-    setARP(&arp_frame, local_ip);
+    BYTE sh[6] = { 0x66,0x66,0x66,0x66,0x66,0x66 };
+    IPAddress si;
+    si.byte1 = 0x70;
+    si.byte2 = 0x70;
+    si.byte3 = 0x70;
+    si.byte4 = 0x70;
+    setARP(&arp_frame, sh, si, local_ip);
     pcap_sendpacket(adhandle, (u_char*)&arp_frame, sizeof(arp_frame));
-    printf("ARP发送成功");
+    printf("ARP发送成功\n");
 
     while (true) {
         int rtn = pcap_next_ex(adhandle, &pkt_header, &pkt_data);
@@ -348,57 +360,67 @@ int main()
             } 
         }
     }
+    printf("\n");
 
+    printf("----------输入IP地址：----------\n");
+    printf("请输入IP地址：");
+    char dest_ip[INET_ADDRSTRLEN];
+    scanf("%s", dest_ip);
+    DWORD dst_ip_dword = inet_addr(dest_ip);
+    IPAddress dst_ip;
+    dst_ip.byte1 = dst_ip_dword & 0xFF;
+    dst_ip.byte2 = (dst_ip_dword >> 8) & 0xFF;
+    dst_ip.byte3 = (dst_ip_dword >> 16) & 0xFF;
+    dst_ip.byte4 = (dst_ip_dword >> 24) & 0xFF;
+    BYTE dst_ha[6];
+    for (int i = 0; i < 6; i++) {
+        dst_ha[i] = IPPacket->send_ha[i];
+    }
+    setARP(&arp_frame,dst_ha, local_ip, dst_ip);
+    pcap_sendpacket(adhandle, (u_char*)&arp_frame, sizeof(arp_frame));
+    printf("ARP发送成功！\n");
 
+    while (true) {
+        int rtn = pcap_next_ex(adhandle, &pkt_header, &pkt_data);
+        if (rtn == -1) {
+            printf("在捕获ARP数据包时发生错误！\n");
+            return 0;
+        }
+        else if (rtn == 0) {
+            printf("没有捕获到数据包！\n");
+        }
+        else {
+            IPPacket = (ARPFrame*)pkt_data;
+            if (IPPacket->recv_ip.byte1 == local_ip.byte1
+                && IPPacket->recv_ip.byte2 == local_ip.byte2
+                && IPPacket->recv_ip.byte3 == local_ip.byte3
+                && IPPacket->recv_ip.byte4 == local_ip.byte4
+                && IPPacket->send_ip.byte1 == dst_ip.byte1
+                && IPPacket->send_ip.byte2 == dst_ip.byte2
+                && IPPacket->send_ip.byte3 == dst_ip.byte3
+                && IPPacket->send_ip.byte4 == dst_ip.byte4
+                )//判断是不是一开始发的包
+            {
+                printf("IP地址与MAC地址的对应关系如下：\n");
+                printf("IP地址：%d.%d.%d.%d <==> MAC地址： %d-%d-%d-%d-%d-%d\n",
+                    IPPacket->send_ip.byte1,
+                    IPPacket->send_ip.byte2,
+                    IPPacket->send_ip.byte3,
+                    IPPacket->send_ip.byte4,
 
-    printf("\n正在捕获数据包（ %s ）...\n", d->description);
+                    IPPacket->send_ha[0],
+                    IPPacket->send_ha[1],
+                    IPPacket->send_ha[2],
+                    IPPacket->send_ha[3],
+                    IPPacket->send_ha[4],
+                    IPPacket->send_ha[5]
+                );
+                break;
+            }
+        }
+    }
+
     pcap_freealldevs(alldevs);
 
-    //捕获数据包
-    pcap_loop(adhandle, 0, packet_handler, NULL);
-
     return 0;
-}
-//回调函数的实现
-void packet_handler(u_char* param, const struct pcap_pkthdr* header, const u_char* pkt_data)
-{
-    FrameHeader* fh;
-    IPHeader* ih;
-
-    //从pkt_data中获取fh
-    fh = (FrameHeader*)pkt_data;
-
-    //从pkt_data中获取ih
-    ih = (IPHeader*)(pkt_data + 14);
-
-    //输出信息
-    printf("源IP地址：%d.%d.%d.%d ->目的IP地址： %d.%d.%d.%d\n",
-        ih->saddr.byte1,
-        ih->saddr.byte2,
-        ih->saddr.byte3,
-        ih->saddr.byte4,
-
-        ih->daddr.byte1,
-        ih->daddr.byte2,
-        ih->daddr.byte3,
-        ih->daddr.byte4
-    );
-    printf("源MAC地址：%d.%d.%d.%d.%d.%d ->目的MAC地址：%d.%d.%d.%d.%d.%d\n",
-        fh->source_mac_address.byte1,
-        fh->source_mac_address.byte2,
-        fh->source_mac_address.byte3,
-        fh->source_mac_address.byte4,
-        fh->source_mac_address.byte5,
-        fh->source_mac_address.byte6,
-
-        fh->destination_mac_address.byte1,
-        fh->destination_mac_address.byte2,
-        fh->destination_mac_address.byte3,
-        fh->destination_mac_address.byte4,
-        fh->destination_mac_address.byte5,
-        fh->destination_mac_address.byte6
-    );
-    printf("\t数据帧类型：%d\n", fh->type);
-    printf("\t服务类型：%d\n", ih->tos);
-    printf("\t总长度：%hu\n", ih->tlen);
 }
