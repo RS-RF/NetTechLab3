@@ -99,12 +99,12 @@ void setARP(ARPFrame* argu_arp, BYTE argu_send_ha[], IPAddress argu_send_ip, IPA
     argu_arp->frame_header.destination_mac_address.byte6 = 0xFF;
 
     //设置本机网卡的MAC地址
-    argu_arp->frame_header.destination_mac_address.byte1 = argu_send_ha[0];
-    argu_arp->frame_header.destination_mac_address.byte2 = argu_send_ha[1];
-    argu_arp->frame_header.destination_mac_address.byte3 = argu_send_ha[2];
-    argu_arp->frame_header.destination_mac_address.byte4 = argu_send_ha[3];
-    argu_arp->frame_header.destination_mac_address.byte5 = argu_send_ha[4];
-    argu_arp->frame_header.destination_mac_address.byte6 = argu_send_ha[5];
+    argu_arp->frame_header.source_mac_address.byte1 = argu_send_ha[0];
+    argu_arp->frame_header.source_mac_address.byte2 = argu_send_ha[1];
+    argu_arp->frame_header.source_mac_address.byte3 = argu_send_ha[2];
+    argu_arp->frame_header.source_mac_address.byte4 = argu_send_ha[3];
+    argu_arp->frame_header.source_mac_address.byte5 = argu_send_ha[4];
+    argu_arp->frame_header.source_mac_address.byte6 = argu_send_ha[5];
 
     //设置帧类型为0x0806
     argu_arp->frame_header.type = htons(0x0806);
@@ -340,10 +340,10 @@ int main()
                 && IPPacket->send_ip.byte2 == ((rev_ip >> 8) & 0xFF)
                 && IPPacket->send_ip.byte3 == ((rev_ip >> 16) & 0xFF)
                 && IPPacket->send_ip.byte4 == ((rev_ip >> 24) & 0xFF)
-                )//判断是不是一开始发的包
+                )
             {
                 printf("IP地址与MAC地址的对应关系如下：\n");
-                printf("IP地址：%d.%d.%d.%d <==> MAC地址： %d-%d-%d-%d-%d-%d\n",
+                printf("IP地址：%d.%d.%d.%d <==> MAC地址： %02x-%02x-%02x-%02x-%02x-%02x\n",
                     IPPacket->send_ip.byte1,
                     IPPacket->send_ip.byte2,
                     IPPacket->send_ip.byte3,
@@ -402,7 +402,7 @@ int main()
                 )//判断是不是一开始发的包
             {
                 printf("IP地址与MAC地址的对应关系如下：\n");
-                printf("IP地址：%d.%d.%d.%d <==> MAC地址： %d-%d-%d-%d-%d-%d\n",
+                printf("IP地址：%d.%d.%d.%d <==> MAC地址： %02x-%02x-%02x-%02x-%02x-%02x\n",
                     IPPacket->send_ip.byte1,
                     IPPacket->send_ip.byte2,
                     IPPacket->send_ip.byte3,
